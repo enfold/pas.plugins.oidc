@@ -1,4 +1,7 @@
+from pas.plugins.oidc import plugins
 from pas.plugins.oidc import PACKAGE_NAME
+from pas.plugins.oidc import PLUGIN_ID
+from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
 from plone import api
 
 import pytest
@@ -14,7 +17,7 @@ class TestSetupInstall:
 
     def test_latest_version(self, profile_last_version):
         """Test latest version of default profile."""
-        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1001"
+        assert profile_last_version(f"{PACKAGE_NAME}:default") == "1010"
 
     def test_browserlayer(self, browser_layers):
         """Test that IPasPluginsOidcLayer is registered."""
@@ -22,18 +25,27 @@ class TestSetupInstall:
 
         assert IPasPluginsOidcLayer in browser_layers
 
-    def test_plugin_added(self):
+    @pytest.mark.parametrize(
+        "plugin_id",
+        [
+            KEYCLOAK_GROUPS_PLUGIN_ID,
+            PLUGIN_ID,
+        ]
+    )
+    def test_plugin_added(self, plugin_id):
         """Test if plugin is added to acl_users."""
-        from pas.plugins.oidc import PLUGIN_ID
-
         pas = api.portal.get_tool("acl_users")
-        assert PLUGIN_ID in pas.objectIds()
+        assert plugin_id in pas.objectIds()
 
-    def test_plugin_is_oidc(self):
+    @pytest.mark.parametrize(
+        "plugin_id,klass",
+        [
+            (KEYCLOAK_GROUPS_PLUGIN_ID, plugins.KeycloakGroupsPlugin),
+            (PLUGIN_ID, plugins.OIDCPlugin),
+        ]
+    )
+    def test_plugin_is_oidc(self, plugin_id, klass):
         """Test if we have the correct plugin."""
-        from pas.plugins.oidc import PLUGIN_ID
-        from pas.plugins.oidc.plugins import OIDCPlugin
-
         pas = api.portal.get_tool("acl_users")
-        plugin = getattr(pas, PLUGIN_ID)
-        assert isinstance(plugin, OIDCPlugin)
+        plugin = getattr(pas, plugin_id)
+        assert isinstance(plugin, klass)

@@ -1,0 +1,33 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="pas.plugins.oidc"
+    >
+
+  <genericsetup:upgradeStep
+      title="Activate challenge plugin"
+      profile="pas.plugins.oidc:default"
+      source="1000"
+      destination="1001"
+      handler=".v1001.activate_challenge_plugin"
+      />
+
+  <genericsetup:upgradeSteps
+      profile="pas.plugins.oidc:default"
+      source="1001"
+      destination="1010"
+      >
+    <genericsetup:upgradeDepends
+        title="Add Keycloak group plugin settings"
+        import_steps="plone.app.registry"
+        />
+    <genericsetup:upgradeDepends
+        title="Register Keycloak group control panel"
+        import_steps="controlpanel"
+        />
+    <genericsetup:upgradeStep
+        title="Add KeycloakGroupsPlugin"
+        handler=".v1010.add_keycloak_plugin"
+        />
+  </genericsetup:upgradeSteps>
+</configure>

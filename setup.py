@@ -54,6 +54,7 @@ setup(
         "Plone",
         "plone.api",
         "plone.restapi>=8.34.0",
+        "python-keycloak",
         "oic",
     ],
     extras_require={

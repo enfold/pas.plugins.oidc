@@ -1,0 +1,32 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="pas.plugins.oidc"
+    >
+
+  <genericsetup:registerProfile
+      name="default"
+      title="pas.plugins.oidc"
+      description="Installs the pas.plugins.oidc add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/default"
+      post_handler=".setuphandlers.post_install"
+      />
+
+  <genericsetup:registerProfile
+      name="uninstall"
+      title="pas.plugins.oidc (uninstall)"
+      description="Uninstalls the pas.plugins.oidc add-on."
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      directory="profiles/uninstall"
+      post_handler=".setuphandlers.uninstall"
+      />
+
+  <utility
+      factory=".setuphandlers.HiddenProfiles"
+      name="pas.plugins.oidc-hiddenprofiles"
+      />
+
+  <include package=".upgrades" />
+
+</configure>

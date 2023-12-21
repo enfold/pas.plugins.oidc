@@ -43,7 +43,7 @@ class OAuth2ConnectionException(Exception):
 
 
 class IOIDCPlugin(Interface):
-    """ """
+    """Interface for OIDCPlugin."""
 
 
 @implementer(IOIDCPlugin)
@@ -136,6 +136,13 @@ class OIDCPlugin(BasePlugin):
             label="User info property used as userid, default 'sub'",
         ),
     )
+
+    @security.private
+    def is_plugin_active(self, iface):
+        """Check if Plugin is active for given interface."""
+        pas = self._getPAS()
+        ids = pas.plugins.listPluginIds(iface)
+        return self.getId() in ids
 
     def rememberIdentity(self, userinfo):
         if not isinstance(userinfo, (OpenIDSchema, dict)):
@@ -359,11 +366,7 @@ InitializeClass(OIDCPlugin)
 classImplements(
     OIDCPlugin,
     IOIDCPlugin,
-    # IExtractionPlugin,
-    # IAuthenticationPlugin,
     IChallengePlugin,
-    # IPropertiesPlugin,
-    # IRolesPlugin,
 )
 
 

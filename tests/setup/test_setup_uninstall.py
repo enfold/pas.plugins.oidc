@@ -1,4 +1,6 @@
 from pas.plugins.oidc import PACKAGE_NAME
+from pas.plugins.oidc import PLUGIN_ID
+from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
 from plone import api
 
 import pytest
@@ -19,9 +21,14 @@ class TestSetupUninstall:
 
         assert IPasPluginsOidcLayer not in browser_layers
 
-    def test_plugin_removed(self, portal):
+    @pytest.mark.parametrize(
+        "plugin_id",
+        [
+            KEYCLOAK_GROUPS_PLUGIN_ID,
+            PLUGIN_ID
+        ]
+    )
+    def test_plugin_removed(self, portal, plugin_id):
         """Test if plugin is removed to acl_users."""
-        from pas.plugins.oidc import PLUGIN_ID
-
         pas = api.portal.get_tool("acl_users")
-        assert PLUGIN_ID not in pas.objectIds()
+        assert plugin_id not in pas.objectIds()

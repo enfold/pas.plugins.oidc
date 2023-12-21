@@ -3,8 +3,8 @@ from oic.oic.message import IdToken
 from pas.plugins.oidc import _
 from pas.plugins.oidc import logger
 from pas.plugins.oidc import utils
-from pas.plugins.oidc.plugins import OAuth2ConnectionException
-from pas.plugins.oidc.plugins import OIDCPlugin
+from pas.plugins.oidc.plugins.challenge import OAuth2ConnectionException
+from pas.plugins.oidc.plugins.challenge import OIDCPlugin
 from plone import api
 from plone.protect.interfaces import IDisableCSRFProtection
 from plone.restapi.deserializer import json_body
