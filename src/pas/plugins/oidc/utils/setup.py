@@ -36,6 +36,16 @@ PLUGIN_GROUP = (
 PLUGINS = [PLUGIN_CHALLENGE, PLUGIN_GROUP]
 
 
+def get_plugin(plugin_id: str, klass: Type) -> Union[KeycloakGroupsPlugin, OIDCPlugin]:
+    """Check if plugin has the correct class."""
+    pas = api.portal.get_tool("acl_users")
+    plugin = getattr(pas, plugin_id)
+    if not isinstance(plugin, klass):
+        logger.warning(f"PAS plugin {plugin_id} is not a {klass.__name__}.")
+        return None
+    return plugin
+
+
 def interfaces_for_plugin(pas: PluggableAuthService, plugin_id: str) -> List[str]:
     """Given a plugin, return a list of interface names."""
     plugin = getattr(pas, plugin_id, None)
@@ -100,10 +110,9 @@ def add_pas_plugin(
         plugin.id = plugin_id
         pas._setObject(plugin_id, plugin)
         logger.info(f"Added {plugin_id} to acl_users.")
-    plugin = getattr(pas, plugin_id)
-    if not isinstance(plugin, klass):
-        raise ValueError(f"Existing PAS plugin {plugin_id} is not a {klass}.")
-
+    plugin = get_plugin(plugin_id, klass)
+    if not plugin:
+        raise ValueError(f"{plugin_id} is not an instance of {klass.__name__}")
     if should_activate:
         activate = interfaces_for_plugin(pas, plugin_id)
         for interface_name in activate:
@@ -119,11 +128,8 @@ def remove_pas_plugin(klass: Type, plugin_id: str) -> bool:
     if plugin_id not in pas.objectIds():
         return False
 
-    plugin = getattr(pas, plugin_id)
-    if not isinstance(plugin, klass):
-        logger.warning(
-            f"PAS plugin {plugin_id} not removed: it is not a {klass.__name__}."
-        )
+    plugin = get_plugin(plugin_id, klass)
+    if not plugin:
         return False
     pas._delObject(plugin_id)
     logger.info(f"Removed {klass.__name__} {plugin_id} from acl_users.")

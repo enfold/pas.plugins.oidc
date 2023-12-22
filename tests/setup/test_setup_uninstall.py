@@ -1,6 +1,6 @@
+from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
 from pas.plugins.oidc import PACKAGE_NAME
 from pas.plugins.oidc import PLUGIN_ID
-from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
 from plone import api
 
 import pytest
@@ -21,14 +21,15 @@ class TestSetupUninstall:
 
         assert IPasPluginsOidcLayer not in browser_layers
 
-    @pytest.mark.parametrize(
-        "plugin_id",
-        [
-            KEYCLOAK_GROUPS_PLUGIN_ID,
-            PLUGIN_ID
-        ]
-    )
+    @pytest.mark.parametrize("plugin_id", [KEYCLOAK_GROUPS_PLUGIN_ID, PLUGIN_ID])
     def test_plugin_removed(self, portal, plugin_id):
         """Test if plugin is removed to acl_users."""
         pas = api.portal.get_tool("acl_users")
         assert plugin_id not in pas.objectIds()
+
+    @pytest.mark.parametrize("configlet_id", ["keycloak_groups"])
+    def test_controlpanel_removed(self, configlet_id):
+        """Test the control panel is not available."""
+        control_panels = api.portal.get_tool("portal_controlpanel")
+        actions_ids = [configlet.id for configlet in control_panels.listActions()]
+        assert configlet_id not in actions_ids

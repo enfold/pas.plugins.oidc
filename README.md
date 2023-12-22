@@ -282,6 +282,13 @@ The `plone` realm ships with an user that has the following credentials:
 * username: **user**
 * password: **12345678**
 
+To update the default realm information, please enter the running Keycloak container and run:
+
+```bash
+/opt/keycloak/bin/kc.sh export --realm plone --users realm_file --file /opt/keycloak/data/import/plone-realm.json
+/opt/keycloak/bin/kc.sh export --realm plone-test --users realm_file --file /opt/keycloak/data/import/plone-test-realm.json
+```
+
 To stop a running `Keycloak` (needed when running tests), use:
 
 ```bash

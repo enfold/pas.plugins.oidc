@@ -10,6 +10,7 @@ from Products.PlonePAS.interfaces.group import IGroupIntrospection
 from Products.PlonePAS.plugins.group import PloneGroup
 from Products.PluggableAuthService.interfaces.plugins import IGroupEnumerationPlugin
 from Products.PluggableAuthService.interfaces.plugins import IGroupsPlugin
+from Products.PluggableAuthService.interfaces.plugins import IRolesPlugin
 from Products.PluggableAuthService.permissions import ManageGroups
 from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
@@ -17,6 +18,7 @@ from time import time
 from typing import Any
 from typing import List
 from typing import Optional
+from typing import Tuple
 from zope.interface import implementer
 from zope.interface import Interface
 
@@ -25,6 +27,13 @@ def config(key: str) -> Any:
     """Get registry configuration for a given key."""
     name = f"keycloak_groups.{key}"
     return api.portal.get_registry_record(name=name)
+
+
+_ATTRS_NOT_WRAPPED = [
+    "id",
+    "_members",
+    "_roles",
+]
 
 
 class OIDCGroup(PloneGroup):
@@ -90,15 +99,16 @@ class KeycloakGroupsPlugin(BasePlugin):
         groups = {}
         plugin_id = self.getId()
         client = self.get_rest_api_client()
-        groups_info = client.get_groups()
+        groups_info = client.get_groups({"briefRepresentation": False})
         for item in groups_info:
             groups[item["id"]] = {
                 "id": item["id"],
                 "title": item["name"],
-                "description": item["name"],
+                "description": item["path"],
                 "pluginid": plugin_id,
                 "groupid": item["id"],
                 "principal_type": "group",
+                "_roles": item.get("realmRoles", []),
             }
         return groups
 
@@ -106,7 +116,7 @@ class KeycloakGroupsPlugin(BasePlugin):
         """Given a dictionary with group information, return a OIDCGroup."""
         group = OIDCGroup(group_info["id"], group_info["title"])
         # Add title, description properties to the group object
-        data = {key: value for key, value in group_info.items() if key != "id"}
+        data = {k: v for k, v in group_info.items() if k not in _ATTRS_NOT_WRAPPED}
         group.addPropertysheet("temp", data)
         return group
 
@@ -172,16 +182,16 @@ class KeycloakGroupsPlugin(BasePlugin):
             value = id if id else title
         if key:
             matches = (
-                [g for g in groups if g[key] == value]
+                [g for g in groups.values() if g[key] == value]
                 if exact_match
                 else [g for g in groups.values() if value in g[key]]
             )
         else:  # show all
-            matches = groups
+            matches = list(groups.values())
         if sort_by == "id":
             matches = sorted(matches)
         ret = []
-        for item in matches.values():
+        for item in matches:
             ret.append(item)
         if max_results and len(ret) > max_results:
             ret = ret[:max_results]
@@ -191,7 +201,7 @@ class KeycloakGroupsPlugin(BasePlugin):
     #   IGroupsPlugin implementation
     #
     @security.private
-    def getGroupsForPrincipal(self, principal, request=None):
+    def getGroupsForPrincipal(self, principal, request=None) -> Tuple[str]:
         """See IGroupsPlugin."""
         if not self.is_plugin_active(IGroupsPlugin):
             return tuple()
@@ -212,14 +222,14 @@ class KeycloakGroupsPlugin(BasePlugin):
     #   (notional)IZODBGroupManager interface
     #
     @security.protected(ManageGroups)
-    def listGroupIds(self):
+    def listGroupIds(self) -> Tuple[str]:
         """-> (group_id_1, ... group_id_n)"""
         if not self.is_plugin_active(IGroupsPlugin):
             return tuple()
-        return [group_id for group_id in self._groups.keys()]
+        return tuple(group_id for group_id in self._groups.keys())
 
     @security.protected(ManageGroups)
-    def listGroupInfo(self) -> List[dict]:
+    def listGroupInfo(self) -> Tuple[dict]:
         """-> (dict, ...dict)
 
         o Return one mapping per group, with the following keys:
@@ -228,14 +238,30 @@ class KeycloakGroupsPlugin(BasePlugin):
         """
         if not self.is_plugin_active(IGroupsPlugin):
             return tuple()
-        return self._groups.values()
+        return tuple(group_info for group_info in self._groups.values())
+
+    def _get_group_info(self, group_id: str) -> dict:
+        default = None
+        group_info = self._groups.get(group_id, default)
+        if not group_info:
+            return group_info
+        # Get Members
+        client = self.get_rest_api_client()
+        try:
+            members = client.get_group_members(group_id=group_id)
+        except KeycloakGetError as exc:
+            logger.debug(f"Error {exc.response_code} looking up members for {group_id}")
+            members = []
+        group_info["_members"] = [member["id"] for member in members]
+        return group_info
 
     @security.protected(ManageGroups)
-    def getGroupInfo(self, group_id: str) -> dict:
+    def getGroupInfo(self, group_id: str) -> Optional[dict]:
         """group_id -> dict"""
         if not self.is_plugin_active(IGroupsPlugin):
-            return tuple()
-        return self._groups.get(group_id, None)
+            return None
+        group_info = self._get_group_info(group_id)
+        return group_info
 
     def getGroupById(self, group_id: str) -> Optional[OIDCGroup]:
         """Return the portal_groupdata object for a group corresponding to this id."""
@@ -256,19 +282,34 @@ class KeycloakGroupsPlugin(BasePlugin):
             return []
         return [group_id for group_id in self._groups.keys()]
 
-    def getGroupMembers(self, group_id: str) -> List[str]:
+    def getGroupMembers(self, group_id: str) -> Tuple[str]:
         """Return the members of the given group."""
-        if not self.is_plugin_active(IGroupsPlugin):
-            return []
-        if group_id not in self._groups:
-            return []
-        client = self.get_rest_api_client()
-        try:
-            members = client.get_group_members(group_id=group_id)
-        except KeycloakGetError as exc:
-            logger.debug(f"Error {exc.response_code} looking up members for {group_id}")
-            return []
-        return [member["id"] for member in members]
+        default = tuple()
+        if self.is_plugin_active(IGroupsPlugin) and group_id in self._groups:
+            client = self.get_rest_api_client()
+            try:
+                members = client.get_group_members(group_id=group_id)
+            except KeycloakGetError as exc:
+                logger.debug(
+                    f"Error {exc.response_code} looking up members for {group_id}"
+                )
+                members = default
+            return tuple(member["id"] for member in members)
+        return default
+
+    #
+    #   IRolesPlugin implementation
+    #
+    @security.private
+    def getRolesForPrincipal(self, principal, request=None) -> Tuple[str]:
+        """See IRolesPlugin."""
+        principal_id = principal.getId()
+        default = tuple()
+        if self.is_plugin_active(IGroupsPlugin) and principal_id in self._groups:
+            group_info = self._get_group_info(principal_id)
+            if group_info:
+                return tuple(group_info.get("_roles", default))
+        return default
 
 
 InitializeClass(KeycloakGroupsPlugin)
@@ -280,4 +321,5 @@ classImplements(
     IGroupsPlugin,
     IGroupIntrospection,
     IGroupEnumerationPlugin,
+    IRolesPlugin,
 )

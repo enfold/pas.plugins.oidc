@@ -60,6 +60,19 @@ def keycloak(keycloak_service):
     }
 
 
+@pytest.fixture(scope="session")
+def keycloak_api(keycloak_service):
+    return {
+        "enabled": True,
+        "server_url": keycloak_service,
+        "username": "admin",
+        "password": "admin",  # nosec B105
+        "realm_name": "plone-test",
+        "client_id": "admin-cli",
+        "client_secret": "12345678",  # nosec B105
+    }
+
+
 @pytest.fixture
 def wait_for():
     def func(thread):

@@ -16,13 +16,16 @@ def app(functional):
 
 
 @pytest.fixture()
-def portal(functional, keycloak):
+def portal(functional, keycloak, keycloak_api):
     portal = functional["portal"]
     setSite(portal)
     plugin = portal.acl_users.oidc
     with api.env.adopt_roles(["Manager", "Member"]):
         for key, value in keycloak.items():
             setattr(plugin, key, value)
+        for key, value in keycloak_api.items():
+            name = f"keycloak_groups.{key}"
+            api.portal.set_registry_record(name, value)
     transaction.commit()
     yield portal
     with api.env.adopt_roles(["Manager", "Member"]):

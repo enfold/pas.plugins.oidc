@@ -31,13 +31,16 @@ def app(restapi):
 
 
 @pytest.fixture()
-def portal(restapi, keycloak):
+def portal(restapi, keycloak, keycloak_api):
     portal = restapi["portal"]
     setSite(portal)
     plugin = portal.acl_users.oidc
     with api.env.adopt_roles(["Manager", "Member"]):
         for key, value in keycloak.items():
             setattr(plugin, key, value)
+        for key, value in keycloak_api.items():
+            name = f"keycloak_groups.{key}"
+            api.portal.set_registry_record(name, value)
     transaction.commit()
     yield portal
     with api.env.adopt_roles(["Manager", "Member"]):

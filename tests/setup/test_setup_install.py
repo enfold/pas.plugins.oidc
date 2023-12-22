@@ -1,7 +1,7 @@
-from pas.plugins.oidc import plugins
+from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
 from pas.plugins.oidc import PACKAGE_NAME
 from pas.plugins.oidc import PLUGIN_ID
-from pas.plugins.oidc import KEYCLOAK_GROUPS_PLUGIN_ID
+from pas.plugins.oidc import plugins
 from plone import api
 
 import pytest
@@ -30,7 +30,7 @@ class TestSetupInstall:
         [
             KEYCLOAK_GROUPS_PLUGIN_ID,
             PLUGIN_ID,
-        ]
+        ],
     )
     def test_plugin_added(self, plugin_id):
         """Test if plugin is added to acl_users."""
@@ -42,10 +42,17 @@ class TestSetupInstall:
         [
             (KEYCLOAK_GROUPS_PLUGIN_ID, plugins.KeycloakGroupsPlugin),
             (PLUGIN_ID, plugins.OIDCPlugin),
-        ]
+        ],
     )
-    def test_plugin_is_oidc(self, plugin_id, klass):
+    def test_plugin_is_correct(self, plugin_id, klass):
         """Test if we have the correct plugin."""
         pas = api.portal.get_tool("acl_users")
         plugin = getattr(pas, plugin_id)
         assert isinstance(plugin, klass)
+
+    @pytest.mark.parametrize("configlet_id", ["keycloak_groups"])
+    def test_controlpanel_installed(self, configlet_id):
+        """Test if we registered the control panel."""
+        control_panels = api.portal.get_tool("portal_controlpanel")
+        actions_ids = [configlet.id for configlet in control_panels.listActions()]
+        assert configlet_id in actions_ids

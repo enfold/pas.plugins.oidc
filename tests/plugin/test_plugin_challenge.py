@@ -7,7 +7,7 @@ from plone.session.tktauth import splitTicket
 import pytest
 
 
-class TestPlugin:
+class TestPluginChallenge:
     @pytest.fixture(autouse=True)
     def _initialize(self, portal, http_request):
         self.pas = api.portal.get_tool("acl_users")
@@ -50,3 +50,8 @@ class TestPlugin:
         plugin_url = plugin.absolute_url()
         expected_url = f"{plugin_url}/require_login?came_from={request_url}"
         assert http_response.headers["location"] == expected_url
+
+    def test_plugin_instance(self):
+        from pas.plugins.oidc.plugins.challenge import OIDCPlugin
+
+        assert isinstance(self.plugin, OIDCPlugin)
