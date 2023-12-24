@@ -8,9 +8,7 @@ from plone import api
 from plone.memoize import ram
 from Products.PlonePAS.interfaces.group import IGroupIntrospection
 from Products.PlonePAS.plugins.group import PloneGroup
-from Products.PluggableAuthService.interfaces.plugins import IGroupEnumerationPlugin
-from Products.PluggableAuthService.interfaces.plugins import IGroupsPlugin
-from Products.PluggableAuthService.interfaces.plugins import IRolesPlugin
+from Products.PluggableAuthService.interfaces import plugins
 from Products.PluggableAuthService.permissions import ManageGroups
 from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
@@ -179,7 +177,7 @@ class KeycloakGroupsPlugin(BasePlugin):
           scaling issues for some implementations.
         """
         default = ()
-        if not self.is_plugin_active(IGroupEnumerationPlugin):
+        if not self.is_plugin_active(plugins.IGroupEnumerationPlugin):
             return default
         groups = self._groups
         if not groups:
@@ -212,7 +210,7 @@ class KeycloakGroupsPlugin(BasePlugin):
     @security.private
     def getGroupsForPrincipal(self, principal, request=None) -> Tuple[str]:
         """See IGroupsPlugin."""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return tuple()
         client = self.get_rest_api_client()
         try:
@@ -233,7 +231,7 @@ class KeycloakGroupsPlugin(BasePlugin):
     @security.protected(ManageGroups)
     def listGroupIds(self) -> Tuple[str]:
         """-> (group_id_1, ... group_id_n)"""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return tuple()
         return tuple(group_id for group_id in self._groups.keys())
 
@@ -245,7 +243,7 @@ class KeycloakGroupsPlugin(BasePlugin):
 
           - 'id'
         """
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return tuple()
         return tuple(group_info for group_info in self._groups.values())
 
@@ -267,34 +265,34 @@ class KeycloakGroupsPlugin(BasePlugin):
     @security.protected(ManageGroups)
     def getGroupInfo(self, group_id: str) -> Optional[dict]:
         """group_id -> dict"""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return None
         group_info = self._get_group_info(group_id)
         return group_info
 
     def getGroupById(self, group_id: str) -> Optional[OIDCGroup]:
         """Return the portal_groupdata object for a group corresponding to this id."""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return None
         group_info = self.getGroupInfo(group_id)
         return self._wrap_group(group_info) if group_info else None
 
     def getGroups(self) -> List[OIDCGroup]:
         """Return an iterator of the available groups."""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return []
         return [self.getGroupById(group_id) for group_id in self.getGroupIds()]
 
     def getGroupIds(self) -> List[str]:
         """Return a list of the available groups."""
-        if not self.is_plugin_active(IGroupsPlugin):
+        if not self.is_plugin_active(plugins.IGroupsPlugin):
             return []
         return [group_id for group_id in self._groups.keys()]
 
     def getGroupMembers(self, group_id: str) -> Tuple[str]:
         """Return the members of a group with the given group_id."""
         default = tuple()
-        if self.is_plugin_active(IGroupsPlugin) and group_id in self._groups:
+        if self.is_plugin_active(plugins.IGroupsPlugin) and group_id in self._groups:
             client = self.get_rest_api_client()
             try:
                 members = client.get_group_members(group_id=group_id)
@@ -317,7 +315,10 @@ class KeycloakGroupsPlugin(BasePlugin):
         """
         principal_id = principal.getId()
         default = tuple()
-        if self.is_plugin_active(IGroupsPlugin) and principal_id in self._groups:
+        if (
+            self.is_plugin_active(plugins.IGroupsPlugin)
+            and principal_id in self._groups
+        ):
             group_info = self._get_group_info(principal_id)
             if group_info:
                 return tuple(group_info.get("_roles", default))
@@ -330,8 +331,8 @@ InitializeClass(KeycloakGroupsPlugin)
 classImplements(
     KeycloakGroupsPlugin,
     IKeycloakGroupsPlugin,
-    IGroupsPlugin,
     IGroupIntrospection,
-    IGroupEnumerationPlugin,
-    IRolesPlugin,
+    plugins.IGroupsPlugin,
+    plugins.IGroupEnumerationPlugin,
+    plugins.IRolesPlugin,
 )
