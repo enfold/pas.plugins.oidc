@@ -27,31 +27,12 @@ class IKeycloakSettings(Interface):
         required=False,
         default="",
     )
+
     realm_name = schema.TextLine(
         title=_("Realm name"),
         description=_(
             "help_realm_name",
             default="Realm to be used for Groups.",
-        ),
-        required=False,
-        default="",
-    )
-
-    username = schema.TextLine(
-        title=_("Keycloak username"),
-        description=_(
-            "help_username",
-            default="Username for the user with admin privileges on Keycloak",
-        ),
-        required=False,
-        default="",
-    )
-
-    password = schema.TextLine(
-        title=_("Keycloak password"),
-        description=_(
-            "help_password",
-            default="Password for the user with admin privileges on Keycloak",
         ),
         required=False,
         default="",

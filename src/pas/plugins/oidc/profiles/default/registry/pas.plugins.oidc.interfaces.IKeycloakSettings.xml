@@ -9,8 +9,7 @@
     <value key="enabled">False</value>
     <value key="server_url" />
     <value key="realm_name" />
-    <value key="username">admin</value>
-    <value key="client_id">admin-cli</value>
+    <value key="client_id" />
     <value key="client_secret" />
     <value key="verify">True</value>
   </records>

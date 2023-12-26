@@ -79,8 +79,6 @@ class KeycloakGroupsPlugin(BasePlugin):
         if enabled:
             return {
                 "server_url": config("server_url"),
-                "username": config("username"),
-                "password": config("password"),
                 "realm_name": config("realm_name"),
                 "client_id": config("client_id"),
                 "client_secret_key": config("client_secret"),
@@ -99,7 +97,8 @@ class KeycloakGroupsPlugin(BasePlugin):
         ids = pas.plugins.listPluginIds(iface)
         return self.getId() in ids
 
-    def get_rest_api_client(self) -> KeycloakAdmin:
+    @property
+    def client(self) -> KeycloakAdmin:
         settings = self._connection_settings
         keycloak_connection = KeycloakOpenIDConnection(**settings)
         keycloak_admin = KeycloakAdmin(connection=keycloak_connection)
@@ -111,7 +110,7 @@ class KeycloakGroupsPlugin(BasePlugin):
         """Query keycloak and return group information."""
         groups = {}
         plugin_id = self.getId()
-        client = self.get_rest_api_client()
+        client = self.client
         groups_info = client.get_groups({"briefRepresentation": False})
         available_roles = self._available_roles
         for item in groups_info:
@@ -212,7 +211,7 @@ class KeycloakGroupsPlugin(BasePlugin):
         """See IGroupsPlugin."""
         if not self.is_plugin_active(plugins.IGroupsPlugin):
             return tuple()
-        client = self.get_rest_api_client()
+        client = self.client
         try:
             groups = client.get_user_groups(user_id=principal.getId())
         except KeycloakGetError as exc:
@@ -253,7 +252,7 @@ class KeycloakGroupsPlugin(BasePlugin):
         if not group_info:
             return group_info
         # Get Members
-        client = self.get_rest_api_client()
+        client = self.client
         try:
             members = client.get_group_members(group_id=group_id)
         except KeycloakGetError as exc:
@@ -290,10 +289,13 @@ class KeycloakGroupsPlugin(BasePlugin):
         return [group_id for group_id in self._groups.keys()]
 
     def getGroupMembers(self, group_id: str) -> Tuple[str]:
-        """Return the members of a group with the given group_id."""
+        """Return the members of a group with the given group_id.
+
+        We only care about groups defined in this plugin.
+        """
         default = tuple()
         if self.is_plugin_active(plugins.IGroupsPlugin) and group_id in self._groups:
-            client = self.get_rest_api_client()
+            client = self.client
             try:
                 members = client.get_group_members(group_id=group_id)
             except KeycloakGetError as exc:
