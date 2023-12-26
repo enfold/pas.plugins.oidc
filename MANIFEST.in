@@ -1,6 +1,8 @@
 graft src/pas
 graft docs
+prune docs/_build
 global-exclude *.pyc
+global-exclude .DS_Store
 include *.md
 include *.txt
 include *.yaml

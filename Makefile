@@ -15,9 +15,9 @@ GREEN=`tput setaf 2`
 RESET=`tput sgr0`
 YELLOW=`tput setaf 3`
 
-BACKEND_FOLDER=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-COMPOSE_FOLDER=${BACKEND_FOLDER}/tests
-DOCS_DIR=${BACKEND_FOLDER}/docs
+REPOSITORY_FOLDER=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+COMPOSE_FOLDER=${REPOSITORY_FOLDER}/tests
+DOCS_DIR=${REPOSITORY_FOLDER}/docs
 
 # Python checks
 PYTHON?=python3
