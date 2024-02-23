@@ -2,10 +2,11 @@ Changelog
 =========
 
 
-1.0.1 (unreleased)
+1.0.1+enfold1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add first_name and last_name user attributes.
+  [enfold]
 
 
 1.0.0 (2023-11-11)
