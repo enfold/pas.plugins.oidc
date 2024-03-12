@@ -2,8 +2,8 @@ Changelog
 =========
 
 
-1.0.1+enfold1 (unreleased)
-------------------
+1.0.1+enfold1 (2024-03-12)
+--------------------------
 
 - Add first_name and last_name user attributes.
   [enfold]
