@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+1.0.1+enfold2 (unreleased)
+--------------------------
+
+- Nothing changed yet.
+
+
 1.0.1+enfold1 (2024-03-12)
 --------------------------
 
