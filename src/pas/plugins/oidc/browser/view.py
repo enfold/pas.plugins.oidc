@@ -24,6 +24,12 @@ except ImportError:
     # Python 2
     from urllib import quote
 
+try:
+    from pas.plugins.oidc.tasks import remember_user
+    HAS_CELERY = True
+except ImportError:
+    HAS_CELERY = False
+
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +279,10 @@ class CallbackView(BrowserView):
             # userinfo in an instance of OpenIDSchema or ErrorResponse
             # It could also be dict, if there is no userinfo_endpoint
             if userinfo and isinstance(userinfo, (OpenIDSchema, dict)):
-                self.context.rememberIdentity(userinfo)
+                if HAS_CELERY:
+                    remember_user.apply_async(args=[self.context, userinfo], kwargs={})
+                else:
+                    self.context.rememberIdentity(userinfo)
                 self.request.response.setHeader(
                     "Cache-Control", "no-cache, must-revalidate"
                 )

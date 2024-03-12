@@ -8,6 +8,9 @@ Changelog
 - Add first_name and last_name user attributes.
   [enfold]
 
+- Add async task to add/update user.
+  [enfold]
+
 
 1.0.0 (2023-11-11)
 ------------------

@@ -78,5 +78,7 @@ setup(
     target = plone
     [console_scripts]
     update_locale = pas.plugins.oidc.locales.update:update_locale
+    [celery_tasks]
+    pas_oidc = pas.plugins.oidc.tasks
     """,
 )
