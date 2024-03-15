@@ -5,7 +5,9 @@ Changelog
 1.0.1+enfold2 (unreleased)
 --------------------------
 
-- Nothing changed yet.
+- Split async task into a task to create/update the user and a task to create
+  groups.
+  [enfold]
 
 
 1.0.1+enfold1 (2024-03-12)

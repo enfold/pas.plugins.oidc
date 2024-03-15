@@ -41,6 +41,12 @@ except ImportError:
     # https://bandit.readthedocs.io/en/1.7.4/blacklists/blacklist_calls.html#b311-random
     from random import choice
 
+try:
+    from pas.plugins.oidc.tasks import create_or_update_user
+    from pas.plugins.oidc.tasks import create_groups
+    HAS_CELERY = True
+except ImportError:
+    HAS_CELERY = False
 
 logger = logging.getLogger(__name__)
 # _MARKER = object()
@@ -154,6 +160,26 @@ class OIDCPlugin(BasePlugin):
         if pas is None:
             return
         user = pas.getUserById(user_id)
+
+        if HAS_CELERY:
+            create_or_update_user.apply_async(args=[self, userinfo], kwargs={})
+        else:
+            self._createOrUpdateUser(userinfo)
+        if self.getProperty("create_groups"):
+            if HAS_CELERY:
+                create_groups.apply_async(args=[self, userinfo], kwargs={})
+            else:
+                self._createGroups(userinfo)
+
+        if user and self.getProperty("create_ticket"):
+            self._setupTicket(user_id)
+        if user and self.getProperty("create_restapi_ticket"):
+            self._setupJWTTicket(user_id, user)
+
+    def _createOrUpdateUser(self, userinfo):
+        user_id = userinfo[self.getProperty("user_property_as_userid") or "sub"]
+        pas = self._getPAS()
+        user = pas.getUserById(user_id)
         if self.getProperty("create_user"):
             # https://github.com/collective/Products.AutoUserMakerPASPlugin/blob/master/Products/AutoUserMakerPASPlugin/auth.py#L110
             if user is None:
@@ -177,7 +203,7 @@ class OIDCPlugin(BasePlugin):
                     for _, curAdder in userAdders:
                         if curAdder.doAddUser(user_id, self._generatePassword()):
                             # Assign a dummy password. It'll never be used;.
-                            user = self._getPAS().getUser(user_id)
+                            user = pas.getUser(user_id)
                             try:
                                 membershipTool = getToolByName(
                                     self, "portal_membership"
@@ -199,42 +225,40 @@ class OIDCPlugin(BasePlugin):
                 with safe_write(self.REQUEST):
                     self._updateUserProperties(user, userinfo)
 
-        if self.getProperty("create_groups"):
-            groupid_property = self.getProperty("user_property_as_groupid")
-            groupid = userinfo.get(groupid_property, None)
-            if isinstance(groupid, str):
-                groupid = [groupid]
+    def _createGroups(self, userinfo):
+        user_id = userinfo[self.getProperty("user_property_as_userid") or "sub"]
+        pas = self._getPAS()
+        user = pas.getUserById(user_id)
+        groupid_property = self.getProperty("user_property_as_groupid")
+        groupid = userinfo.get(groupid_property, None)
+        if isinstance(groupid, str):
+            groupid = [groupid]
 
-            if isinstance(groupid, list):
-                with safe_write(self.REQUEST):
-                    oidc = self.getId()
-                    groups = user.getGroups()
-                    # Remove group memberships
-                    for gid in groups:
-                        group = api.group.get(gid)
-                        is_managed = group.getProperty("type") == oidc.upper()
-                        if is_managed and gid not in groupid:
-                            api.group.remove_user(
-                                group=group, username=user_id
+        if isinstance(groupid, list):
+            with safe_write(self.REQUEST):
+                oidc = self.getId()
+                groups = user.getGroups()
+                # Remove group memberships
+                for gid in groups:
+                    group = api.group.get(gid)
+                    is_managed = group.getProperty("type") == oidc.upper()
+                    if is_managed and gid not in groupid:
+                        api.group.remove_user(
+                            group=group, username=user_id
+                        )
+                # Add group memberships
+                for gid in groupid:
+                    if gid not in groups:
+                        group = api.group.get(gid) or api.group.create(
+                            gid, title=gid
+                        )
+                        # Tag managed groups with "type" of plugin id
+                        if not group.getTool().hasProperty("type"):
+                            group.getTool()._setProperty(
+                                "type", "", "string"
                             )
-                    # Add group memberships
-                    for gid in groupid:
-                        if gid not in groups:
-                            group = api.group.get(gid) or api.group.create(
-                                gid, title=gid
-                            )
-                            # Tag managed groups with "type" of plugin id
-                            if not group.getTool().hasProperty("type"):
-                                group.getTool()._setProperty(
-                                    "type", "", "string"
-                                )
-                            group.setGroupProperties({"type": oidc.upper()})
-                            api.group.add_user(group=group, username=user_id)
-
-        if user and self.getProperty("create_ticket"):
-            self._setupTicket(user_id)
-        if user and self.getProperty("create_restapi_ticket"):
-            self._setupJWTTicket(user_id, user)
+                        group.setGroupProperties({"type": oidc.upper()})
+                        api.group.add_user(group=group, username=user_id)
 
     def _updateUserProperties(self, user, userinfo):
         """Update the given user properties from the set of credentials.
