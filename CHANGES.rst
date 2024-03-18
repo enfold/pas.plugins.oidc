@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold2 (unreleased)
+1.0.1+enfold2 (2024-03-18)
 --------------------------
 
 - Split async task into a task to create/update the user and a task to create
