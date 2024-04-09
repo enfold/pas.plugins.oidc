@@ -1,5 +1,6 @@
 from hashlib import sha256
 from oic import rndstr
+from oic.oauth2 import ResponseError
 from oic.oic.message import AccessTokenResponse
 from oic.oic.message import AuthorizationResponse
 from oic.oic.message import EndSessionRequest
@@ -219,9 +220,16 @@ class CallbackView(BrowserView):
             use_session_data_manager=self.context.getProperty("use_session_data_manager"),
         )
         client = self.context.get_oauth2_client()
-        aresp = client.parse_response(
-            AuthorizationResponse, info=response, sformat="urlencoded"
-        )
+        try:
+            aresp = client.parse_response(
+                AuthorizationResponse, info=response, sformat="urlencoded"
+            )
+        except ResponseError:
+            logger.error(f'Query String: "{response}"')
+            referer = self.request.environ['HTTP_REFERER']
+            logger.error(f'Referer: "{referer}"')
+            raise
+
         if aresp["state"] != session.get("state"):
             logger.error("invalid OAuth2 state response:%s != session:%s",
                          aresp.get("state"), session.get("state"))

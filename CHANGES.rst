@@ -5,7 +5,8 @@ Changelog
 1.0.1+enfold3 (unreleased)
 --------------------------
 
-- Nothing changed yet.
+- Add logging to debug missing response error.
+  [enfold]
 
 
 1.0.1+enfold2 (2024-03-18)
