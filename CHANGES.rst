@@ -5,6 +5,9 @@ Changelog
 1.0.1+enfold3 (unreleased)
 --------------------------
 
+- Create or update user synchronously if site is not in readonly.
+  [enfold]
+
 - Add logging to debug missing response error.
   [enfold]
 

@@ -18,6 +18,7 @@ from Products.PluggableAuthService.interfaces.plugins import IUserAdderPlugin
 from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
 from ZODB.POSException import ConflictError
+from zope.globalrequest import getRequest
 from zope.interface import implementer
 from zope.interface import Interface
 
@@ -52,6 +53,13 @@ logger = logging.getLogger(__name__)
 # _MARKER = object()
 PWCHARS = string.ascii_letters + string.digits + string.punctuation
 # LAST_UPDATE_USER_PROPERTY_KEY = 'last_autousermaker_update'
+
+
+def is_in_readonly():
+    request = getRequest()
+    if request and request.get_header('X-Doom-Transaction'):
+        return True
+    return False
 
 
 class OAuth2ConnectionException(Exception):
@@ -161,13 +169,13 @@ class OIDCPlugin(BasePlugin):
             return
         user = pas.getUserById(user_id)
 
-        if HAS_CELERY:
-            create_or_update_user.apply_async(args=[self, userinfo], kwargs={})
+        if HAS_CELERY and is_in_readonly():
+            create_or_update_user.apply_async(args=[self, userinfo], kwargs={}, without_transaction=True)
         else:
             self._createOrUpdateUser(userinfo)
         if self.getProperty("create_groups"):
-            if HAS_CELERY:
-                create_groups.apply_async(args=[self, userinfo], kwargs={})
+            if HAS_CELERY and is_in_readonly():
+                create_groups.apply_async(args=[self, userinfo], kwargs={}, without_transaction=True)
             else:
                 self._createGroups(userinfo)
 
