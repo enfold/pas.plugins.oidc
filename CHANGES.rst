@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold3 (unreleased)
+1.0.1+enfold3 (2024-04-11)
 --------------------------
 
 - Create or update user synchronously if site is not in readonly.
