@@ -9,7 +9,7 @@
       name="login"
       class=".view.LoginView"
       layer="pas.plugins.oidc.interfaces.IPasPluginsOidcLayer"
-      permission="zope2.View"
+      permission="zope.Public"
       />
 
   <browser:page
@@ -17,7 +17,7 @@
       name="require_login"
       class=".view.RequireLoginView"
       layer="pas.plugins.oidc.interfaces.IPasPluginsOidcLayer"
-      permission="zope2.View"
+      permission="zope.Public"
       />
 
   <browser:page
@@ -33,7 +33,7 @@
       name="callback"
       class=".view.CallbackView"
       layer="pas.plugins.oidc.interfaces.IPasPluginsOidcLayer"
-      permission="zope2.View"
+      permission="zope.Public"
       />
 
 </configure>
