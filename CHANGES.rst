@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold4 (unreleased)
+1.0.1+enfold4 (2024-04-26)
 --------------------------
 
 - Change permission for login, require_login, and callback views to zope.Public.
