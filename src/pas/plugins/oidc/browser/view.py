@@ -226,7 +226,7 @@ class CallbackView(BrowserView):
             )
         except ResponseError:
             logger.error(f'Query String: "{response}"')
-            referer = self.request.environ['HTTP_REFERER']
+            referer = self.request.environ.get('HTTP_REFERER', '')
             logger.error(f'Referer: "{referer}"')
             raise
 
