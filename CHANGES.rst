@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold5 (unreleased)
+1.0.1+enfold5 (2024-05-07)
 --------------------------
 
 - Don't expect HTTP_REFERER to be there when logging info from RequestError on callback view.

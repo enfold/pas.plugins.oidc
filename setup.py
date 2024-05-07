@@ -16,7 +16,7 @@ long_description = "\n\n".join(
 
 setup(
     name="pas.plugins.oidc",
-    version="1.0.1+enfold5.dev0",
+    version="1.0.1+enfold5",
     description="An add-on for Plone",
     long_description=long_description,
     long_description_content_type="text/x-rst",
