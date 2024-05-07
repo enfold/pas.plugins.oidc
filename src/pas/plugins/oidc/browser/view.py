@@ -138,7 +138,9 @@ class LoginView(BrowserView):
                 _(
                     "There was an error during the login process. Please try"
                     " again."
-                )
+                ),
+                request=self.request,
+                type='error',
             )
             portal_url = api.portal.get_tool("portal_url")
             if came_from and portal_url.isURLInPortal(came_from):
