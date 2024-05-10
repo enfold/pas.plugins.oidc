@@ -5,6 +5,9 @@ Changelog
 1.0.1+enfold6 (unreleased)
 --------------------------
 
+- Enable retries.
+  [enfold]
+
 - Pass in request to plone.api.portal.show_message.
   [enfold]
 

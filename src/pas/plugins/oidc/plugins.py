@@ -2,10 +2,17 @@
 from AccessControl import ClassSecurityInfo
 from AccessControl.class_init import InitializeClass
 from contextlib import contextmanager
-from oic.oic import Client
+from oic.oic import Client as BaseClient
 from oic.oic.message import OpenIDSchema
 from oic.oic.message import RegistrationResponse
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from oic.utils.keyio import KeyBundle as BaseKeyBundle
+from oic.utils.keyio import KeyJar
+from oic.utils.keyio import MALFORMED
+from oic.utils.keyio import raise_exception
+from oic.utils.keyio import REMOTE_FAILED
+from oic.utils.keyio import UpdateFailed
+from oic.utils.settings import OicClientSettings
 from plone.protect.utils import safeWrite
 from Products.CMFCore.utils import getToolByName
 
@@ -24,7 +31,12 @@ from zope.interface import Interface
 
 import itertools
 import logging
+import os
+import requests
+import requests.adapters
 import string
+import time
+import urllib3
 import plone.api as api
 
 try:
@@ -68,6 +80,91 @@ class OAuth2ConnectionException(Exception):
 
 class IOIDCPlugin(Interface):
     """ """
+
+
+def setup_requests_session():
+    num_retries = os.getenv('OIDC_PLUGIN_RETRIES')
+    try:
+        num_retries = int(num_retries)
+    except Exception:
+        num_retries = 0
+    backoff_factor = os.getenv('OIDC_PLUGIN_BACKOFF_FACTOR')
+    try:
+        backoff_factor = float(backoff_factor)
+    except Exception:
+        backoff_factor = 0
+    session = requests.Session()
+    for prefix in ('http://', 'https://'):
+        retries = urllib3.Retry(total=num_retries,
+                                backoff_factor=backoff_factor,
+                                status_forcelist=[502, 503, 504])
+        session.mount(prefix, requests.adapters.HTTPAdapter(max_retries=retries))
+    return session
+
+
+class Client(BaseClient):
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        session = getattr(self.settings, "requests_session", None)
+        if session:
+            session.close()
+
+
+class KeyBundle(BaseKeyBundle):
+
+    def do_remote(self):
+        if self.source is None:
+            # Nothing to do
+            return False
+        args = {"verify": self.verify_ssl}
+        if self.etag:
+            args["headers"] = {"If-None-Match": self.etag}
+
+        try:
+            logger.debug("KeyBundle fetch keys from: %s", self.source)
+            with setup_requests_session() as session:
+                r = session.get(self.source, timeout=self.timeout, **args)
+        except Exception as err:
+            logger.error("%s", err)
+            raise_exception(UpdateFailed, REMOTE_FAILED.format(self.source, str(err)))
+
+        if r.status_code == 304:  # file has not changed
+            self.time_out = time.time() + self.cache_time
+            self.last_updated = time.time()
+            try:
+                self.do_keys(self.imp_jwks["keys"])
+            except KeyError:
+                logger.error("No 'keys' keyword in JWKS")
+                raise_exception(UpdateFailed, "No 'keys' keyword in JWKS")
+            else:
+                return False
+        elif r.status_code == 200:  # New content
+            self.time_out = time.time() + self.cache_time
+
+            self.imp_jwks = self._parse_remote_response(r)
+            if not isinstance(self.imp_jwks, dict) or "keys" not in self.imp_jwks:
+                raise_exception(UpdateFailed, MALFORMED.format(self.source))
+
+            logger.debug("Loaded JWKS: %s from %s" % (r.text, self.source))
+            try:
+                self.do_keys(self.imp_jwks["keys"])
+            except KeyError:
+                logger.error("No 'keys' keyword in JWKS")
+                raise_exception(UpdateFailed, MALFORMED.format(self.source))
+
+            try:
+                self.etag = r.headers["Etag"]
+            except KeyError:
+                pass
+        else:
+            raise_exception(
+                UpdateFailed, REMOTE_FAILED.format(self.source, r.status_code)
+            )
+        self.last_updated = time.time()
+        return True
 
 
 @implementer(IOIDCPlugin)
@@ -339,7 +436,9 @@ class OIDCPlugin(BasePlugin):
     # TODO: memoize (?)
     def get_oauth2_client(self):
         try:
-            client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+            settings = OicClientSettings(requests_session=setup_requests_session())
+            keyjar = KeyJar(verify_ssl=settings.verify_ssl, keybundle_cls=KeyBundle)
+            client = Client(client_authn_method=CLIENT_AUTHN_METHOD, settings=settings, keyjar=keyjar)
             # registration_response = client.register(provider_info["registration_endpoint"], redirect_uris=...)
             # ... oic.exception.RegistrationError: {'error': 'insufficient_scope',
             #     'error_description': "Policy 'Trusted Hosts' rejected request to client-registration service. Details: Host not trusted."}

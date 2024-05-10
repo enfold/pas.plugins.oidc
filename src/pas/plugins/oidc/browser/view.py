@@ -102,38 +102,48 @@ class LoginView(BrowserView):
             session.set("came_from", came_from)
 
         try:
-            client = self.context.get_oauth2_client()
+            with self.context.get_oauth2_client() as client:
+                # https://pyoidc.readthedocs.io/en/latest/examples/rp.html#authorization-code-flow
+                args = {
+                    "client_id": self.context.getProperty("client_id"),
+                    "response_type": "code",
+                    "scope": self.context.get_scopes(),
+                    "state": session.get("state"),
+                    "nonce": session.get("nonce"),
+                    "redirect_uri": self.context.get_redirect_uris(),
+                }
+
+                if self.context.getProperty("use_pkce"):
+                    # Build a random string of 43 to 128 characters
+                    # and send it in the request as a base64-encoded urlsafe string of the sha256 hash of that string
+                    session.set("verifier", rndstr(128))
+                    args["code_challenge"] = self.get_code_challenge(
+                        session.get("verifier")
+                    )
+                    args["code_challenge_method"] = "S256"
+
+                try:
+                    auth_req = client.construct_AuthorizationRequest(request_args=args)
+                    login_url = auth_req.request(client.authorization_endpoint)
+                except Exception:
+                    logger.exception('There was an error during the login process')
+                    api.portal.show_message(
+                        _(
+                            "There was an error during the login process. Please try"
+                            " again."
+                        ),
+                        request=self.request,
+                        type='error',
+                    )
+                    portal_url = api.portal.get_tool("portal_url")
+                    if came_from and portal_url.isURLInPortal(came_from):
+                        self.request.response.redirect(came_from)
+                    else:
+                        self.request.response.redirect(api.portal.get().absolute_url())
+
+                    return
         except OAuth2ConnectionException:
-            portal_url = api.portal.get_tool("portal_url")
-            if came_from and portal_url.isURLInPortal(came_from):
-                self.request.response.redirect(came_from)
-            else:
-                self.request.response.redirect(api.portal.get().absolute_url())
-
-        # https://pyoidc.readthedocs.io/en/latest/examples/rp.html#authorization-code-flow
-        args = {
-            "client_id": self.context.getProperty("client_id"),
-            "response_type": "code",
-            "scope": self.context.get_scopes(),
-            "state": session.get("state"),
-            "nonce": session.get("nonce"),
-            "redirect_uri": self.context.get_redirect_uris(),
-        }
-
-        if self.context.getProperty("use_pkce"):
-            # Build a random string of 43 to 128 characters
-            # and send it in the request as a base64-encoded urlsafe string of the sha256 hash of that string
-            session.set("verifier", rndstr(128))
-            args["code_challenge"] = self.get_code_challenge(
-                session.get("verifier")
-            )
-            args["code_challenge_method"] = "S256"
-
-        try:
-            auth_req = client.construct_AuthorizationRequest(request_args=args)
-            login_url = auth_req.request(client.authorization_endpoint)
-        except Exception as e:
-            logger.error(e)
+            logger.exception('There was an error during the login process')
             api.portal.show_message(
                 _(
                     "There was an error during the login process. Please try"
@@ -148,7 +158,6 @@ class LoginView(BrowserView):
             else:
                 self.request.response.redirect(api.portal.get().absolute_url())
 
-            return
 
         self.request.response.setHeader(
             "Cache-Control", "no-cache, must-revalidate"
@@ -171,10 +180,6 @@ class LoginView(BrowserView):
 
 class LogoutView(BrowserView):
     def __call__(self):
-        try:
-            client = self.context.get_oauth2_client()
-        except OAuth2ConnectionException:
-            return ""
 
         # session = Session(
         #   self.request,
@@ -202,10 +207,14 @@ class LogoutView(BrowserView):
 
         pas = getToolByName(self.context, "acl_users")
         auth_cookie_name = pas.credentials_cookie_auth.cookie_name
+        try:
+            with self.context.get_oauth2_client() as client:
+                # end_req = client.construct_EndSessionRequest(request_args=args)
+                end_req = EndSessionRequest(**args)
+                logout_url = end_req.request(client.end_session_endpoint)
+        except OAuth2ConnectionException:
+            return ""
 
-        # end_req = client.construct_EndSessionRequest(request_args=args)
-        end_req = EndSessionRequest(**args)
-        logout_url = end_req.request(client.end_session_endpoint)
         self.request.response.setHeader("Cache-Control", "no-cache, must-revalidate")
         # TODO: change path with portal_path
         self.request.response.expireCookie(auth_cookie_name, path="/")
@@ -221,82 +230,82 @@ class CallbackView(BrowserView):
             self.request,
             use_session_data_manager=self.context.getProperty("use_session_data_manager"),
         )
-        client = self.context.get_oauth2_client()
-        try:
-            aresp = client.parse_response(
-                AuthorizationResponse, info=response, sformat="urlencoded"
-            )
-        except ResponseError:
-            logger.error(f'Query String: "{response}"')
-            referer = self.request.environ.get('HTTP_REFERER', '')
-            logger.error(f'Referer: "{referer}"')
-            raise
-
-        if aresp["state"] != session.get("state"):
-            logger.error("invalid OAuth2 state response:%s != session:%s",
-                         aresp.get("state"), session.get("state"))
-            # TODO: need to double check before removing the comment below
-            # raise ValueError("invalid OAuth2 state")
-
-        args = {
-            "code": aresp["code"],
-            "redirect_uri": self.context.get_redirect_uris(),
-        }
-
-        if self.context.getProperty("use_pkce"):
-            args["code_verifier"] = session.get("verifier")
-
-        if self.context.getProperty("use_modified_openid_schema"):
-            IdToken.c_param.update(
-                {
-                    "email_verified": SINGLE_OPTIONAL_BOOLEAN_AS_STRING,
-                    "phone_number_verified": SINGLE_OPTIONAL_BOOLEAN_AS_STRING,
-                }
-            )
-
-        # The response you get back is an instance of an AccessTokenResponse
-        # or again possibly an ErrorResponse instance.
-        resp = client.do_access_token_request(
-            state=aresp["state"],
-            request_args=args,
-            authn_method="client_secret_basic",
-        )
-
-        if isinstance(resp, AccessTokenResponse):
-            # If it's an AccessTokenResponse the information in the response will be stored in the
-            # client instance with state as the key for future use.
-            if client.userinfo_endpoint:
-                # https://openid.net/specs/openid-connect-core-1_0.html#UserInfo
-
-                # XXX: Not completely sure if this is even needed
-                #      We do not have a OpenID connect provider with userinfo endpoint
-                #      enabled and with the weird treatment of boolean values, so we cannot test this
-                # if self.context.getProperty("use_modified_openid_schema"):
-                #     userinfo = client.do_user_info_request(state=aresp["state"], user_info_schema=CustomOpenIDNonBooleanSchema)
-                # else:
-                #     userinfo = client.do_user_info_request(state=aresp["state"])
-
-                userinfo = client.do_user_info_request(state=aresp["state"])
-            else:
-                userinfo = resp.to_dict().get("id_token", {})
-
-            # userinfo in an instance of OpenIDSchema or ErrorResponse
-            # It could also be dict, if there is no userinfo_endpoint
-            if userinfo and isinstance(userinfo, (OpenIDSchema, dict)):
-                self.context.rememberIdentity(userinfo)
-                self.request.response.setHeader(
-                    "Cache-Control", "no-cache, must-revalidate"
+        with self.context.get_oauth2_client() as client:
+            try:
+                aresp = client.parse_response(
+                    AuthorizationResponse, info=response, sformat="urlencoded"
                 )
-                self.request.response.redirect(self.return_url(session=session))
-                return
-            else:
-                logger.error(
-                    "authentication failed invaid response %s %s", resp, userinfo
+            except ResponseError:
+                logger.error(f'Query String: "{response}"')
+                referer = self.request.environ.get('HTTP_REFERER', '')
+                logger.error(f'Referer: "{referer}"')
+                raise
+
+            if aresp["state"] != session.get("state"):
+                logger.error("invalid OAuth2 state response:%s != session:%s",
+                             aresp.get("state"), session.get("state"))
+                # TODO: need to double check before removing the comment below
+                # raise ValueError("invalid OAuth2 state")
+
+            args = {
+                "code": aresp["code"],
+                "redirect_uri": self.context.get_redirect_uris(),
+            }
+
+            if self.context.getProperty("use_pkce"):
+                args["code_verifier"] = session.get("verifier")
+
+            if self.context.getProperty("use_modified_openid_schema"):
+                IdToken.c_param.update(
+                    {
+                        "email_verified": SINGLE_OPTIONAL_BOOLEAN_AS_STRING,
+                        "phone_number_verified": SINGLE_OPTIONAL_BOOLEAN_AS_STRING,
+                    }
                 )
+
+            # The response you get back is an instance of an AccessTokenResponse
+            # or again possibly an ErrorResponse instance.
+            resp = client.do_access_token_request(
+                state=aresp["state"],
+                request_args=args,
+                authn_method="client_secret_basic",
+            )
+
+            if isinstance(resp, AccessTokenResponse):
+                # If it's an AccessTokenResponse the information in the response will be stored in the
+                # client instance with state as the key for future use.
+                if client.userinfo_endpoint:
+                    # https://openid.net/specs/openid-connect-core-1_0.html#UserInfo
+
+                    # XXX: Not completely sure if this is even needed
+                    #      We do not have a OpenID connect provider with userinfo endpoint
+                    #      enabled and with the weird treatment of boolean values, so we cannot test this
+                    # if self.context.getProperty("use_modified_openid_schema"):
+                    #     userinfo = client.do_user_info_request(state=aresp["state"], user_info_schema=CustomOpenIDNonBooleanSchema)
+                    # else:
+                    #     userinfo = client.do_user_info_request(state=aresp["state"])
+
+                    userinfo = client.do_user_info_request(state=aresp["state"])
+                else:
+                    userinfo = resp.to_dict().get("id_token", {})
+
+                # userinfo in an instance of OpenIDSchema or ErrorResponse
+                # It could also be dict, if there is no userinfo_endpoint
+                if userinfo and isinstance(userinfo, (OpenIDSchema, dict)):
+                    self.context.rememberIdentity(userinfo)
+                    self.request.response.setHeader(
+                        "Cache-Control", "no-cache, must-revalidate"
+                    )
+                    self.request.response.redirect(self.return_url(session=session))
+                    return
+                else:
+                    logger.error(
+                        "authentication failed invaid response %s %s", resp, userinfo
+                    )
+                    raise Unauthorized()
+            else:
+                logger.error("authentication failed %s", resp)
                 raise Unauthorized()
-        else:
-            logger.error("authentication failed %s", resp)
-            raise Unauthorized()
 
     def return_url(self, session=None):
         came_from = self.request.get("came_from")
