@@ -5,7 +5,9 @@ Changelog
 1.0.1+enfold7 (unreleased)
 --------------------------
 
-- Nothing changed yet.
+- If came_from is the callback URL change it to the portal URL.
+  [enfold]
+
 
 
 1.0.1+enfold6 (2024-05-10)

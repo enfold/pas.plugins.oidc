@@ -76,9 +76,12 @@ class RequireLoginView(BrowserView):
     def __call__(self):
         if api.user.is_anonymous():
             # context is our PAS plugin
-            url = self.context.absolute_url() + "/login"
+            context_url = self.context.absolute_url()
+            url = "{}/login".format(context_url)
             came_from = self.request.get('came_from', None)
             if came_from:
+                if came_from == "{}/callback".format(context_url):
+                    came_from = api.portal.get().absolute_url()
                 url += "?came_from={}".format(quote(came_from))
         else:
             url = api.portal.get().absolute_url()
@@ -99,6 +102,8 @@ class LoginView(BrowserView):
         session.set("nonce", rndstr())
         came_from = self.request.get("came_from")
         if came_from:
+            if came_from == "{}/callback".format(self.context.absolute_url()):
+                came_from = api.portal.get().absolute_url()
             session.set("came_from", came_from)
 
         try:
