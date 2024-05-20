@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold7 (unreleased)
+1.0.1+enfold7 (2024-05-20)
 --------------------------
 
 - If came_from is the callback URL change it to the portal URL.
