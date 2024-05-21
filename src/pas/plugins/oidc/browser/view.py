@@ -162,6 +162,7 @@ class LoginView(BrowserView):
                 self.request.response.redirect(came_from)
             else:
                 self.request.response.redirect(api.portal.get().absolute_url())
+            return
 
 
         self.request.response.setHeader(

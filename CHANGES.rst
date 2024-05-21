@@ -5,7 +5,8 @@ Changelog
 1.0.1+enfold8 (unreleased)
 --------------------------
 
-- Nothing changed yet.
+- Add missing return statement in login view __call__ method.
+  [enfold]
 
 
 1.0.1+enfold7 (2024-05-20)
@@ -13,7 +14,6 @@ Changelog
 
 - If came_from is the callback URL change it to the portal URL.
   [enfold]
-
 
 
 1.0.1+enfold6 (2024-05-10)
