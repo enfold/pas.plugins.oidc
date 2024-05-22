@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold8 (unreleased)
+1.0.1+enfold8 (2024-05-22)
 --------------------------
 
 - Add missing return statement in login view __call__ method.
