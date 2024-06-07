@@ -378,6 +378,7 @@ class OIDCPlugin(BasePlugin):
         userProps["first_name"] = userinfo.get("given_name", "")
         if "email" in userinfo:
             userProps["email"] = userinfo["email"]
+            userProps["login"] = userinfo["email"]
         if "given_name" in userinfo and "family_name" in userinfo:
             userProps["fullname"] = "{} {}".format(
                 userinfo["given_name"], userinfo["family_name"]

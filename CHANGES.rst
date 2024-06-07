@@ -5,7 +5,8 @@ Changelog
 1.0.1+enfold9 (unreleased)
 --------------------------
 
-- Nothing changed yet.
+- Use email for login.
+  [enfold]
 
 
 1.0.1+enfold8 (2024-05-22)
