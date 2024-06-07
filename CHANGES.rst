@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold9 (unreleased)
+1.0.1+enfold9 (2024-06-07)
 --------------------------
 
 - Use email for login.
