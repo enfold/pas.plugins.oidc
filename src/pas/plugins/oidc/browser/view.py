@@ -17,7 +17,7 @@ from pas.plugins.oidc import _
 import base64
 import json
 import logging
-
+import pprint
 try:
     # Python 3
     from urllib.parse import quote
@@ -290,14 +290,19 @@ class CallbackView(BrowserView):
                     #     userinfo = client.do_user_info_request(state=aresp["state"], user_info_schema=CustomOpenIDNonBooleanSchema)
                     # else:
                     #     userinfo = client.do_user_info_request(state=aresp["state"])
-
+                    logger.info('Getting userinfo from %s', client.userinfo_endpoint)
                     userinfo = client.do_user_info_request(state=aresp["state"])
                 else:
+                    logger.info('Getting userinfo from response')
                     userinfo = resp.to_dict().get("id_token", {})
 
                 # userinfo in an instance of OpenIDSchema or ErrorResponse
                 # It could also be dict, if there is no userinfo_endpoint
                 if userinfo and isinstance(userinfo, (OpenIDSchema, dict)):
+                    if isinstance(userinfo, OpenIDSchema):
+                        logger.info(pprint.pformat(userinfo.to_dict()))
+                    else:
+                        logger.info(pprint.pformat(userinfo))
                     self.context.rememberIdentity(userinfo)
                     self.request.response.setHeader(
                         "Cache-Control", "no-cache, must-revalidate"

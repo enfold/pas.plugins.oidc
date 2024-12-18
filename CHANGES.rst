@@ -5,7 +5,8 @@ Changelog
 1.0.1+enfold10 (unreleased)
 ---------------------------
 
-- Nothing changed yet.
+- Add some debugging code.
+  [enfold]
 
 
 1.0.1+enfold9 (2024-06-07)
