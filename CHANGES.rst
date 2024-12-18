@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-1.0.1+enfold10 (unreleased)
+1.0.1+enfold10 (2024-12-18)
 ---------------------------
 
 - Add some debugging code.
